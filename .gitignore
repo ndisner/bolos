@@ -3,3 +3,4 @@ build
 dist
 process.pyc
 target.pyc
+__pycache__
