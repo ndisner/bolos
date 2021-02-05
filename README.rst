@@ -1,7 +1,7 @@
 BOLOS
 =====
 
-``BOLOS`` is a BOLtzmann equation solver Open Source library.  
+``BOLOS`` is a Boltzmann equation solver Open Source library.  
 
 This package provides a pure Python library for the solution of the 
 Boltzmann equation for electrons in a non-thermal plasma.  It builds upon
