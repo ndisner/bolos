@@ -1,3 +1,11 @@
+# %% [markdown] BOLOS file that formats as matrix rate file for RB app
+# NOTES
+# Steve had a EN values in np.linspace(0.1,2000)
+# BOLOS had previously tested EN values np.linspace(0,1000,100) and compared to BOLSIG+
+# TODO: Fix the convergence error for high EN values only going up to 800Td right now 
+# TODO: Check 'lion' commits on github and his manual
+# TODO: Add in a closer model that uses the ideal gas law
+# TODO: Check the data and units
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,17 +24,11 @@ rcParams['mathtext.it'] = 'serif:italic'
 rcParams['mathtext.bf'] = 'serif:bold'
 rcParams['mathtext.fontset'] = 'custom'
 # %%
-# Steve had a EN values in np.linspace(0.1,2000)
-# BOLOS had tested EN values np.linspace(0,1000,100) and compared to BOLSIG+
-# TODO: Fix the convergence error for high EN values only going up to 300Td right now 
-# TODO: Write up some intructions for setting convergence parameters
-# TODO: Add in a closer model that uses the ideal gas law
 enefile = []
 ratefile = []
 swarmfile = []
 if __name__ == '__main__':
-    EoN = np.linspace(0,1000) 
-    print(EoN)
+    EoN = np.linspace(0,800,100)
     press = 101325
     T_k = 300
     ND = press / co.k / T_k
@@ -56,14 +58,14 @@ if __name__ == '__main__':
         k = bsolver.rate(f1, "N2 -> N2^+")
 
         enefile.append([en, mean_energy])
-        ratefile.append([mean_energy,] + [bsolver.rate(f1, p) for t, p in bsolver.iter_all()])
+        ratefile.append([mean_energy,] + [bsolver.rate(f1, p) if bsolver.rate(f1, p) > 1.0e-25 else 0.0e00 for t, p in bsolver.iter_all()])
         swarmfile.append([en, mean_energy, electron_temp, mu, diff, k])
 
     with open('energy_v_Td_bolos.txt', 'w') as f:
-        np.savetxt(f, np.c_[enefile], delimiter='         ', fmt='%0.3e')
+        np.savetxt(f, np.c_[enefile], delimiter='         ', fmt='%0.3e') # the 0 is as many places as needed
     
     with open('bolos_rates.txt', 'w') as f:
-        np.savetxt(f, np.r_['0,2', ratefile], delimiter='               ', fmt='%0.3e')
+        np.savetxt(f, np.r_['0,2', ratefile], delimiter='                   ', fmt='%0.3e') 
     
     with open('swarm_file.txt', 'w') as f:
         np.savetxt(f, np.c_[swarmfile], delimiter='         ', fmt='%0.3e')
@@ -75,11 +77,9 @@ reatctant = [p['target'] for p in processes]
 product = [p.get('product','N2(X1)') for p in processes]
 thresh = [p.get('threshold','0.0') for p in processes]
 
-print(comment[0])
 new_comment = [y for x in comment for y in x.split('\n')]
 new_comment = [x for x in new_comment if not x.startswith('UPDATED')]
 new_comment = [x for x in new_comment if not x.startswith('COLUMNS')]
-print(new_comment)
 
 # I have a couple options below which are used to extract data
 # One is a dictionary of dictionaries, the other is a dictionary of lists
@@ -99,32 +99,35 @@ for i in new_comment:
 #         d[k] = {v}
 #         d[k] = [v]
 
-words = [',Effective', ',Excitation', ',Ionization', ',completeset']
+words = [',effective', ',excitation', ',Ionization', ',completeset']
 for word in words:
     if word in words:
+        d['PROCESS'] = [item.replace('E', 'e') for item in d['PROCESS']]
+        d['PROCESS'] = [item.replace('N2+(B2SIGMA)', 'N2(X2:ion:B2SIGMA)') for item in d['PROCESS']]
+        d['PROCESS'] = [item.replace('N2(r', 'N2(R') for item in d['PROCESS']]
+        d['PROCESS'] = [item.replace('N2+', 'N2(X2:ion)') for item in d['PROCESS']]
+        d['PROCESS'] = [item.replace('N2-', 'N2(X1)-') for item in d['PROCESS']]
         d['PROCESS'] = [item.replace(word, '') for item in d['PROCESS']]
         d['PARAM.'] = [item.replace(word, '') for item in d['PARAM.']]
     else:
         break
 
+d['PROCESS'][0] = 'e+N2(X1)->e+N2(X1)'
 
-th = f"{'!Thresh (eV)':<25}{''.join([format(str(x),'<25') for x in [*thresh]])}\n"
-re = f"{'!Reaction':<25}{''.join([format(str(x),'<25') for x in d['PROCESS']])}\n"
-ty = f"{'!Type':<25}{''.join([format(str(x),'<25') for x in [*kind]])}\n"
-units = f"{'!<E> (eV)':<25}{''.join(format('Rate_Constant (m^3/s)','<25'))*26}\n"
+th = f"{'!Thresh(eV)':<28}{''.join([format(str(x),'<28') for x in [*thresh]])}\n"
+re = f"{'!Reaction':<28}{''.join([format(str(x),'<28') for x in d['PROCESS']])}\n"
+ty = f"{'!Type':<28}{''.join([format(str(x),'<28') for x in [*kind]])}\n"
+units = f"{'!<E> (eV)':<28}{''.join(format('Rate_Constant(m^3/s)','<28'))*26}\n"
 sep = f"{'!'}{''.join('-')*len(re)}\n"
 
 string = [th, re, ty, units, sep]
-print(string)
 
 # %%
-# TODO: Check the data the numbers look off
-# %%
-header1 = f"{'E/N (Td)':<20}{'Energy (eV)'}\n"
+header1 = f"{'E/N (Td)':<18}{'Energy (eV)'}\n"
 file1 = 'energy_v_Td_bolos.txt'
 header2 = f"{''.join(string)}"
 file2 = 'bolos_rates.txt'
-header3 = f"{'E/N (Td)':<20}{'Energy (eV)':<20}{'Temp (K)':<20}{'Mobility ()':<20}{'Diffusion ()':<20}{'Ionization Rate ()':<20}\n"
+header3 = f"{'E/N (Td)':<18}{'Energy (eV)':<18}{'Temp (K)':<18}{'Mobility ()':<20}{'Diffusion ()':<20}{'Ionization Rate ()':<20}\n"
 file3 = 'swarm_file.txt'
 
 def WriteHeader(filename, header):
@@ -154,3 +157,19 @@ plt.legend(['BOLOS', 'BOLSIG+'])
 plt.xlabel("E/N (Td)")
 plt.ylabel("Mean Energy (eV)")
 plt.savefig(f"bolos_v_bolsig+.pdf")
+
+# %%
+data_bolos_rates = np.loadtxt('bolos_rates.txt', skiprows=5)
+data_MW_rates = np.loadtxt('N2_Rates_MW.txt', skiprows=5)
+
+x1 = data_bolos_rates[:, 0]
+y1 = data_bolos_rates[:, 1] * 1e+06
+x2 = data_MW_rates[:, 0]
+y2 = data_MW_rates[:, 1]
+plt.plot(x1, y1)
+plt.plot(x2, y2)
+plt.legend(['BOLOS Ratefile', 'N2_MW Ratefile'])
+plt.xlabel("Mean Energy")
+plt.ylabel("Effective")
+plt.savefig(f"compare_effective.pdf")
+# %%
