@@ -1,11 +1,8 @@
 # %% [markdown] BOLOS file that formats as matrix rate file for RB app
-# NOTES
-# Steve had a EN values in np.linspace(0.1,2000)
-# BOLOS had previously tested EN values np.linspace(0,1000,100) and compared to BOLSIG+
-# TODO: Fix the convergence error for high EN values only going up to 800Td right now 
+# NOTE: Start with an initial grid and then expand to a quadratic one after adjusting the the mean energy of the first grid
 # TODO: Check 'lion' commits on github and his manual
 # TODO: Add in a closer model that uses the ideal gas law
-# TODO: Check the data and units
+# TODO: Check the data and units!
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +10,7 @@ import scipy.constants as co
 from matplotlib import rcParams
 from collections import defaultdict
 from bolos import parser, grid, solver
-# %%
+
 rcParams['font.family'] = 'serif'
 rcParams['font.serif'] = ['Times New Roman']
 rcParams['font.size'] = 12
@@ -28,7 +25,7 @@ enefile = []
 ratefile = []
 swarmfile = []
 if __name__ == '__main__':
-    EoN = np.linspace(0,800,100)
+    EoN = np.linspace(0.1,2000)
     press = 101325
     T_k = 300
     ND = press / co.k / T_k
@@ -43,15 +40,15 @@ if __name__ == '__main__':
         bsolver.EN = en * solver.TOWNSEND       
         bsolver.init()
         f0 = bsolver.maxwell(2.0)
-        f_sol = bsolver.converge(f0, maxn=500, rtol=1e-5)
+        f_sol = bsolver.converge(f0, maxn=200, rtol=1e-4)
         mean_energy = bsolver.mean_energy(f_sol)
         electron_temp = bsolver.electron_temperature(f_sol)     
-        newgrid = grid.QuadraticGrid(0, 100 * mean_energy, 200)
+        newgrid = grid.QuadraticGrid(0, 20 * mean_energy, 200)
         bsolver.grid = newgrid
         bsolver.init()
 
         finterp = bsolver.grid.interpolate(f_sol, g)
-        f1 = bsolver.converge(finterp, maxn=500, rtol=1e-6)
+        f1 = bsolver.converge(finterp, maxn=200, rtol=1e-5)
 
         mu = bsolver.mobility(f1) / ND
         diff = bsolver.diffusion(f1) / ND
@@ -166,10 +163,10 @@ x1 = data_bolos_rates[:, 0]
 y1 = data_bolos_rates[:, 1] * 1e+06
 x2 = data_MW_rates[:, 0]
 y2 = data_MW_rates[:, 1]
-plt.plot(x1, y1)
-plt.plot(x2, y2)
+plt.loglog(x1, y1)
+plt.loglog(x2, y2)
 plt.legend(['BOLOS Ratefile', 'N2_MW Ratefile'])
-plt.xlabel("Mean Energy")
-plt.ylabel("Effective")
+plt.xlabel("Mean Energy (eV)")
+plt.ylabel("Effective (cm^3/s) ")
 plt.savefig(f"compare_effective.pdf")
 # %%
