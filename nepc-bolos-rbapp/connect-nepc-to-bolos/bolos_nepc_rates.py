@@ -1,4 +1,4 @@
-# %% [markdown] BOLOS file that formats as matrix rate file for RB app
+# %% [markdown] BOLOS file that formats nepc data as matrix rate file for RB app
 # NOTE: Start with an initial grid and then expand to a quadratic one after adjusting the the mean energy of the first grid
 # TODO: Check 'lion' commits on github and his manual
 # TODO: Add in a closer model that uses the ideal gas law
@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import scipy.constants as co
 from matplotlib import rcParams
 from collections import defaultdict
+import nepc
+from nepc.util import config
 from bolos import parser, grid, solver
 
 rcParams['font.family'] = 'serif'
@@ -20,6 +22,7 @@ rcParams['mathtext.rm'] = 'serif'
 rcParams['mathtext.it'] = 'serif:italic'
 rcParams['mathtext.bf'] = 'serif:bold'
 rcParams['mathtext.fontset'] = 'custom'
+
 # %%
 enefile = []
 ratefile = []
@@ -29,12 +32,17 @@ if __name__ == '__main__':
     press = 101325
     T_k = 300
     ND = press / co.k / T_k
+    
+    with open('Cross section.txt') as fp:
+        processes = parser.parse(fp)
+
+    cnx, cursor = nepc.connect(local=False)
+    n_phelps = nepc.Model(cursor, "phelps")
+    
     for en in EoN:
         g = grid.LinearGrid(0, 100, 500) # 0-100ev 500 intervals
         bsolver = solver.BoltzmannSolver(g)
-        with open('Cross section.txt') as fp:
-            processes = parser.parse(fp)
-            bsolver.load_collisions(processes)
+        bsolver.load_collisions(processes)
         bsolver.target['N2'].density = 1
         bsolver.kT = T_k * co.k / co.eV
         bsolver.EN = en * solver.TOWNSEND       
@@ -43,7 +51,7 @@ if __name__ == '__main__':
         f_sol = bsolver.converge(f0, maxn=200, rtol=1e-4)
         mean_energy = bsolver.mean_energy(f_sol)
         electron_temp = bsolver.electron_temperature(f_sol)     
-        newgrid = grid.QuadraticGrid(0, 20 * mean_energy, 200)
+        newgrid = grid.QuadraticGrid(0, 50 * mean_energy, 200)
         bsolver.grid = newgrid
         bsolver.init()
 
@@ -58,13 +66,13 @@ if __name__ == '__main__':
         ratefile.append([mean_energy,] + [bsolver.rate(f1, p) if bsolver.rate(f1, p) > 1.0e-25 else 0.0e00 for t, p in bsolver.iter_all()])
         swarmfile.append([en, mean_energy, electron_temp, mu, diff, k])
 
-    with open('energy_v_Td_bolos.txt', 'w') as f:
+    with open('energy_v_Td_bolos_nepc.txt', 'w') as f:
         np.savetxt(f, np.c_[enefile], delimiter='         ', fmt='%0.3e') # the 0 is as many places as needed
     
-    with open('bolos_rates.txt', 'w') as f:
+    with open('bolos_nepc_rates.txt', 'w') as f:
         np.savetxt(f, np.r_['0,2', ratefile], delimiter='                   ', fmt='%0.3e') 
     
-    with open('swarm_file.txt', 'w') as f:
+    with open('swarm_file_nepc.txt', 'w') as f:
         np.savetxt(f, np.c_[swarmfile], delimiter='         ', fmt='%0.3e')
 # %%
 [(p['kind'], p['target'], p['comment'], p.get('threshold'), p.get('product','')) for p in processes]
@@ -121,11 +129,11 @@ string = [th, re, ty, units, sep]
 
 # %%
 header1 = f"{'E/N (Td)':<18}{'Energy (eV)'}\n"
-file1 = 'energy_v_Td_bolos.txt'
+file1 = 'energy_v_Td_bolos_nepc.txt'
 header2 = f"{''.join(string)}"
-file2 = 'bolos_rates.txt'
+file2 = 'bolos_nepc_rates.txt'
 header3 = f"{'E/N (Td)':<18}{'Energy (eV)':<18}{'Temp (K)':<18}{'Mobility ()':<20}{'Diffusion ()':<20}{'Ionization Rate ()':<20}\n"
-file3 = 'swarm_file.txt'
+file3 = 'swarm_file_nepc.txt'
 
 def WriteHeader(filename, header):
     with open(filename, "r") as f:
@@ -141,7 +149,7 @@ a = WriteHeader(file1, header1)
 b = WriteHeader(file2, header2)
 c = WriteHeader(file3, header3)
 # %%
-data_bolos = np.loadtxt('energy_v_Td_bolos.txt', skiprows=1)
+data_bolos = np.loadtxt('energy_v_Td_bolos_nepc.txt', skiprows=1)
 data_bolsig = np.loadtxt('energy_v_Td_bolsig+.txt')
 
 x1 = data_bolos[:, 0]
@@ -156,7 +164,7 @@ plt.ylabel("Mean Energy (eV)")
 plt.savefig(f"bolos_v_bolsig+.pdf")
 
 # %%
-data_bolos_rates = np.loadtxt('bolos_rates.txt', skiprows=5)
+data_bolos_rates = np.loadtxt('bolos_nepc_rates.txt', skiprows=5)
 data_MW_rates = np.loadtxt('N2_Rates_MW.txt', skiprows=5)
 
 x1 = data_bolos_rates[:, 0]
