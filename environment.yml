@@ -1,0 +1,30 @@
+name: bolos
+channels:
+        - conda-forge
+dependencies:
+        - ipython
+        - ipython_genutils
+        - jpeg
+        - jupyter
+        - jupyter_client
+        - numpy
+        - pandas
+        - python==3.7
+        - matplotlib
+        - tabulate
+        - pytest
+        - pytest-cov
+        - sphinx
+        - numpydoc
+        - pip
+        - pip:
+                - quadpy
+                - pylint
+                - pdfminer.six
+                - pdfplumber
+                - mysql-connector-python==8.0.17
+                - autopep8
+                - livereload
+                - formic2
+                - sphobjinv
+                - turbopy >= 2020.8.25
