@@ -4,3 +4,4 @@ dist
 process.pyc
 target.pyc
 __pycache__
+.history
