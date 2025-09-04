@@ -4,3 +4,5 @@
 
     [project]
     name = "bolos"
+    version = "0.1"
+    description = "Python app used to solve two-term boltzmann equation"
